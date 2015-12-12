@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TMP_FOLDER=$(mktemp -d "${TMPDIR}openrct2.XXXXXX")
+ARCHIVE_FILE=$(mktemp "${TMPDIR}openrct2.tar.gz.XXXXXX")
+CRASH_STR="No crash detected."
+echo ""
+echo "This tool will test OpenRCT2 on your system. Use of this tool will submit non-identifable information about your machine and any associated logs from OpenRCT2 to a 3rd party server."
+echo "Continue? [yN]"
+read agree
+agree=$(echo ${agree} | awk '{print tolower($0)}')
+if [ "${agree}" != "y" ]; then
+	echo "You have chosen to not continue. Goodbye."
+	exit 0
+fi
+
+echo "OpenRCT2 will now open. Expect it to automatially quit after a short period of time."
+
+"${DIR}/.OpenRCT2.app/Contents/MacOS/openrct2" > "${TMP_FOLDER}/output.log" 2>&1
+if [ "$?" != "2" ]; then
+	CRASH_STR="Crash detected!"
+	for file in ~/Library/Logs/DiagnosticReports/openrct2*; do
+		cp "${file}" "${TMP_FOLDER}"
+	done
+fi
+echo ${CRASH_STR}
+echo ${CRASH_STR} >> "${TMP_FOLDER}/output.log"
+echo "Saving System Info"
+system_profiler -xml -detailLevel mini > "${TMP_FOLDER}/systeminfo.spx"
+echo "Archiving info"
+pushd "${TMP_FOLDER}/.." > /dev/null
+	tar -zcf "${ARCHIVE_FILE}" "$(basename ${TMP_FOLDER})"
+popd > /dev/null
+rm -r "${TMP_FOLDER}"
+echo "Uploading archive"
+url=`curl -s --upload-file ${ARCHIVE_FILE} https://transfer.sh/openrct2.tar.gz`
+if [ "$?" != "0" ]; then
+	echo "Unable to upload file to remove server. The archive has been placed on your desktop as openrct2.tar.gz. Please email it to kyle.kirby.misc [at] icloud.com"
+	mv ${ARCHIVE_FILE} ~/Desktop/openrct2.tar.gz
+else
+	rm ${ARCHIVE_FILE}
+	echo "Reporting archive"
+	curl -s -d "${CRASH_STR} - ${url}" http://aploiki.com/openrct2_report/
+	if [ "$?" != "0" ]; then
+		echo "Unable to report uploaded file. Please send an email to kyle.kirby.misc [at] icloud.com with this URL in the body: ${url}"
+	fi
+fi
+echo "The process is now completed. Thank you."
+exit 0
