@@ -18,6 +18,8 @@ echo "OpenRCT2 will now open. Expect it to automatially quit after a short perio
 "${DIR}/.OpenRCT2.app/Contents/MacOS/openrct2" > "${TMP_FOLDER}/output.log" 2>&1
 if [ "$?" != "2" ]; then
 	CRASH_STR="Crash detected!"
+	# Wait for crash file to be created. 5 seconds is probably overkill.
+	sleep 5
 	for file in ~/Library/Logs/DiagnosticReports/openrct2*; do
 		cp "${file}" "${TMP_FOLDER}"
 	done
